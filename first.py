@@ -8,6 +8,7 @@ import requests
 lon_ = 37.530887  # долгота
 lat_ = 55.703118  # широта
 zoom_ = 8  # масштаб
+tag_coords = None  # координаты метки
 API_KEY = '40d1649f-0493-4b70-98ba-98533de7710b'
 
 class InputText:
@@ -46,7 +47,7 @@ class InputText:
 
 
 def GoCoords(name):
-    global lon_, lat_
+    global lon_, lat_, tag_coords
     geocoder_request = f"http://geocode-maps.yandex.ru/1.x/?apikey={API_KEY}&geocode={name}&format=json"
 
     response = requests.get(geocoder_request)
@@ -56,8 +57,9 @@ def GoCoords(name):
         toponym_address = toponym["metaDataProperty"]["GeocoderMetaData"]["text"]
         toponym_coodrinates = toponym["Point"]["pos"].split()
 
-        lon_ = toponym_coodrinates[0]
-        lat_ = toponym_coodrinates[1]
+        lon_ = float(toponym_coodrinates[0])
+        lat_ = float(toponym_coodrinates[1])
+        tag_coords = [str(lon_), str(lat_), 'pm2dbl']
 
 
 # загружаю карту
@@ -68,11 +70,13 @@ def load(lon, lat, zoom, map_type):
         'z': zoom,
         "l": map_type
     }
+    if tag_coords:
+        params['pt'] = ','.join(tag_coords)
     response = requests.get(api_server, params=params)
 
     if not response:
         print("Ошибка выполнения запроса:")
-        print(map_request)
+        print(response.url)
         print("Http статус:", response.status_code, "(", response.reason, ")")
         sys.exit(1)
 
