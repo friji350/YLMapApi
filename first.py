@@ -115,8 +115,14 @@ def draw_l_switching(screen, map_type):
             text = font.render(i[0], True, 'gray')
         screen.blit(text, i[1])
 
+def DrawDelete(screen):
+    pygame.draw.rect(screen, 'white', (10, 50, 120, 30))
+    pygame.draw.rect(screen, 'gray', (10, 50, 120, 30), 3)
+    text = pygame.font.Font(None, 22).render("Удалить метку", True, pygame.Color('blue'))
+    screen.blit(text, (15, 60))
 
 def main():
+    global tag_coords
     map_type = 'map'
     pygame.init()
     screen = pygame.display.set_mode((600, 450))
@@ -141,6 +147,8 @@ def main():
                 map_type = 'sat'
             if 560 <= event.pos[0] <= 593 and 3 <= event.pos[1] <= 33:
                 map_type = 'sat,skl'
+            if 10 <= event.pos[0] <= 130 and 50 <= event.pos[1] <= 80:
+                tag_coords = None
             map_image = load(lon_, lat_, zoom_, map_type)
             screen.blit(pygame.image.load(map_image), (0, 0))
 
@@ -148,6 +156,7 @@ def main():
         input_text.draw(screen)
 
         draw_l_switching(screen, map_type)
+        DrawDelete(screen)
         pygame.display.flip()
 
     pygame.quit()
