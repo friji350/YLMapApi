@@ -7,7 +7,57 @@ import requests
 # стандартные значениеы
 lon_ = 37.530887  # долгота
 lat_ = 55.703118  # широта
-zoom_ = 4  # масштаб
+zoom_ = 8  # масштаб
+API_KEY = '40d1649f-0493-4b70-98ba-98533de7710b'
+
+class InputText:
+    def __init__(self, x, y, text=''):
+        self.rect = pygame.Rect(x, y, 300, 32)
+        self.color = pygame.Color('gray')
+        self.text = text
+        self.text_ = pygame.font.Font(None, 32).render(text, True, self.color)
+        self.active = False
+
+    def event_h(self, event):
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            if self.rect.collidepoint(event.pos):
+                self.active = not self.active
+            else:
+                self.active = False
+            if self.active:
+                self.color = pygame.Color('blue')
+            else:
+                self.color = pygame.Color('gray')
+        if event.type == pygame.KEYDOWN:
+            if self.active:
+                if event.key == pygame.K_RETURN:
+                    GoCoords(self.text)
+                    self.text = ''
+                elif event.key == pygame.K_BACKSPACE:
+                    self.text = self.text[:-1]
+                else:
+                    self.text += event.unicode
+                self.text_ = pygame.font.Font(None, 32).render(self.text, True, self.color)
+
+    #отрисовка текста и поля
+    def draw(self, screen):
+        screen.blit(self.text_, (self.rect.x+5, self.rect.y+5))
+        pygame.draw.rect(screen, self.color, self.rect, 2)
+
+
+def GoCoords(name):
+    global lon_, lat_
+    geocoder_request = f"http://geocode-maps.yandex.ru/1.x/?apikey={API_KEY}&geocode={name}&format=json"
+
+    response = requests.get(geocoder_request)
+    if response:
+        json_response = response.json()
+        toponym = json_response["response"]["GeoObjectCollection"]["featureMember"][0]["GeoObject"]
+        toponym_address = toponym["metaDataProperty"]["GeocoderMetaData"]["text"]
+        toponym_coodrinates = toponym["Point"]["pos"].split()
+
+        lon_ = toponym_coodrinates[0]
+        lat_ = toponym_coodrinates[1]
 
 
 # загружаю карту
@@ -70,6 +120,7 @@ def main():
     map_image = load(lon_, lat_, zoom_, map_type)
     screen.blit(pygame.image.load(map_image), (0, 0))
     pygame.display.flip()
+    input_text = InputText(10, 10)
     while True:
         # жду нажатия любой кнопки
         event = pygame.event.wait()
@@ -88,6 +139,9 @@ def main():
                 map_type = 'sat,skl'
             map_image = load(lon_, lat_, zoom_, map_type)
             screen.blit(pygame.image.load(map_image), (0, 0))
+
+        input_text.event_h(event)
+        input_text.draw(screen)
 
         draw_l_switching(screen, map_type)
         pygame.display.flip()
