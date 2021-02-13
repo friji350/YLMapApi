@@ -10,6 +10,8 @@ lat_ = 55.703118  # широта
 zoom_ = 8  # масштаб
 tag_coords = None  # координаты метки
 API_KEY = '40d1649f-0493-4b70-98ba-98533de7710b'
+address = ""  # адрес найденного объекта
+
 
 class InputText:
     def __init__(self, x, y, text=''):
@@ -47,19 +49,27 @@ class InputText:
 
 
 def GoCoords(name):
-    global lon_, lat_, tag_coords
+    global lon_, lat_, tag_coords, address
     geocoder_request = f"http://geocode-maps.yandex.ru/1.x/?apikey={API_KEY}&geocode={name}&format=json"
 
     response = requests.get(geocoder_request)
+    print(response.url)
     if response:
         json_response = response.json()
-        toponym = json_response["response"]["GeoObjectCollection"]["featureMember"][0]["GeoObject"]
-        toponym_address = toponym["metaDataProperty"]["GeocoderMetaData"]["text"]
-        toponym_coodrinates = toponym["Point"]["pos"].split()
+        if json_response["response"]["GeoObjectCollection"]["featureMember"]:
+            toponym = json_response["response"]["GeoObjectCollection"]["featureMember"][0]["GeoObject"]
+            toponym_address = toponym["metaDataProperty"]["GeocoderMetaData"]["text"]
+            toponym_coodrinates = toponym["Point"]["pos"].split()
 
-        lon_ = float(toponym_coodrinates[0])
-        lat_ = float(toponym_coodrinates[1])
-        tag_coords = [str(lon_), str(lat_), 'pm2dbl']
+            lon_ = float(toponym_coodrinates[0])
+            lat_ = float(toponym_coodrinates[1])
+            tag_coords = [str(lon_), str(lat_), 'pm2dbl']
+            if len(toponym_address) > 50:
+                address = toponym_address[:51] + "..."
+            else:
+                address = toponym_address
+        else:
+            address = 'Ничего не найдено'
 
 
 # загружаю карту
@@ -115,14 +125,24 @@ def draw_l_switching(screen, map_type):
             text = font.render(i[0], True, 'gray')
         screen.blit(text, i[1])
 
+
 def DrawDelete(screen):
     pygame.draw.rect(screen, 'white', (10, 50, 120, 30))
     pygame.draw.rect(screen, 'gray', (10, 50, 120, 30), 3)
     text = pygame.font.Font(None, 22).render("Удалить метку", True, pygame.Color('blue'))
     screen.blit(text, (15, 60))
 
+
+def draw_address_bar(screen):
+    pygame.draw.rect(screen, 'white', (10, 410, 500, 30))
+    pygame.draw.rect(screen, 'gray', (10, 410, 500, 30), 3)
+    font = pygame.font.Font(None, 25)
+    text = font.render(address, True, 'blue')
+    screen.blit(text, (15, 417))
+
+
 def main():
-    global tag_coords
+    global tag_coords, address
     map_type = 'map'
     pygame.init()
     screen = pygame.display.set_mode((600, 450))
@@ -149,6 +169,7 @@ def main():
                 map_type = 'sat,skl'
             if 10 <= event.pos[0] <= 130 and 50 <= event.pos[1] <= 80:
                 tag_coords = None
+                address = ''
             map_image = load(lon_, lat_, zoom_, map_type)
             screen.blit(pygame.image.load(map_image), (0, 0))
 
@@ -157,6 +178,9 @@ def main():
 
         draw_l_switching(screen, map_type)
         DrawDelete(screen)
+
+        draw_address_bar(screen)
+
         pygame.display.flip()
 
     pygame.quit()
