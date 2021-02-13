@@ -12,6 +12,7 @@ tag_coords = None  # координаты метки
 API_KEY = '40d1649f-0493-4b70-98ba-98533de7710b'
 address = ""  # адрес найденного объекта
 postal_code = "" #индекс найденного
+mode = True
 
 class InputText:
     def __init__(self, x, y, text=''):
@@ -138,6 +139,14 @@ def DrawDelete(screen):
     text = pygame.font.Font(None, 22).render("Удалить метку", True, pygame.Color('blue'))
     screen.blit(text, (15, 60))
 
+def DrawPostalSwitching(screen, mode):
+    pygame.draw.rect(screen, 'white', (10, 90, 50, 30))
+    pygame.draw.rect(screen, 'gray', (10, 90, 50, 30), 3)
+    if mode:
+        text = pygame.font.Font(None, 22).render("On", True, pygame.Color('blue'))
+    else:
+        text = pygame.font.Font(None, 22).render("Off", True, pygame.Color('blue'))
+    screen.blit(text, (15, 95))
 
 def draw_address_bar(screen):
     pygame.draw.rect(screen, 'white', (10, 410, 500, 30))
@@ -154,7 +163,7 @@ def draw_postal_bar(screen):
     screen.blit(text, (15, 355))
 
 def main():
-    global tag_coords, address, postal_code
+    global tag_coords, address, postal_code, mode
     map_type = 'map'
     pygame.init()
     screen = pygame.display.set_mode((600, 450))
@@ -183,6 +192,8 @@ def main():
                 tag_coords = None
                 address = ''
                 postal_code = ''
+            if 10 <= event.pos[0] <= 60 and 90 <= event.pos[1] <= 120:
+                mode = not mode
             map_image = load(lon_, lat_, zoom_, map_type)
             screen.blit(pygame.image.load(map_image), (0, 0))
 
@@ -193,7 +204,9 @@ def main():
         DrawDelete(screen)
 
         draw_address_bar(screen)
-        draw_postal_bar(screen)
+        if not mode:
+            draw_postal_bar(screen)
+        DrawPostalSwitching(screen, mode)
 
         pygame.display.flip()
 
