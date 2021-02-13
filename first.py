@@ -11,7 +11,7 @@ zoom_ = 8  # масштаб
 tag_coords = None  # координаты метки
 API_KEY = '40d1649f-0493-4b70-98ba-98533de7710b'
 address = ""  # адрес найденного объекта
-
+postal_code = "" #индекс найденного
 
 class InputText:
     def __init__(self, x, y, text=''):
@@ -49,16 +49,22 @@ class InputText:
 
 
 def GoCoords(name):
-    global lon_, lat_, tag_coords, address
+    global lon_, lat_, tag_coords, address, postal_code
     geocoder_request = f"http://geocode-maps.yandex.ru/1.x/?apikey={API_KEY}&geocode={name}&format=json"
 
     response = requests.get(geocoder_request)
-    print(response.url)
     if response:
         json_response = response.json()
         if json_response["response"]["GeoObjectCollection"]["featureMember"]:
             toponym = json_response["response"]["GeoObjectCollection"]["featureMember"][0]["GeoObject"]
+            
             toponym_address = toponym["metaDataProperty"]["GeocoderMetaData"]["text"]
+            try:
+                postal_code = toponym["metaDataProperty"]["GeocoderMetaData"]["Address"]['postal_code']
+            except Exception as e:
+                pass
+
+
             toponym_coodrinates = toponym["Point"]["pos"].split()
 
             lon_ = float(toponym_coodrinates[0])
@@ -140,9 +146,15 @@ def draw_address_bar(screen):
     text = font.render(address, True, 'blue')
     screen.blit(text, (15, 417))
 
+def draw_postal_bar(screen):
+    pygame.draw.rect(screen, 'white', (10, 350, 200, 30))
+    pygame.draw.rect(screen, 'gray', (10, 350, 200, 30), 3)
+    font = pygame.font.Font(None, 25)
+    text = font.render(postal_code, True, 'blue')
+    screen.blit(text, (15, 355))
 
 def main():
-    global tag_coords, address
+    global tag_coords, address, postal_code
     map_type = 'map'
     pygame.init()
     screen = pygame.display.set_mode((600, 450))
@@ -170,6 +182,7 @@ def main():
             if 10 <= event.pos[0] <= 130 and 50 <= event.pos[1] <= 80:
                 tag_coords = None
                 address = ''
+                postal_code = ''
             map_image = load(lon_, lat_, zoom_, map_type)
             screen.blit(pygame.image.load(map_image), (0, 0))
 
@@ -180,6 +193,7 @@ def main():
         DrawDelete(screen)
 
         draw_address_bar(screen)
+        draw_postal_bar(screen)
 
         pygame.display.flip()
 
