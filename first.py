@@ -11,8 +11,9 @@ zoom_ = 8  # масштаб
 tag_coords = None  # координаты метки
 API_KEY = '40d1649f-0493-4b70-98ba-98533de7710b'
 address = ""  # адрес найденного объекта
-postal_code = "" #индекс найденного
+postal_code = ""  # индекс найденного
 mode = True
+
 
 class InputText:
     def __init__(self, x, y, text=''):
@@ -43,13 +44,32 @@ class InputText:
                     self.text += event.unicode
                 self.text_ = pygame.font.Font(None, 32).render(self.text, True, self.color)
 
-    #отрисовка текста и поля
+    # отрисовка текста и поля
     def draw(self, screen):
         screen.blit(self.text_, (self.rect.x+5, self.rect.y+5))
         pygame.draw.rect(screen, self.color, self.rect, 2)
 
 
-def GoCoords(name):
+def lonlat_distance(a, b):
+    degree_to_meters_factor = 111 * 1000  # 111 километров в метрах
+    a_lon, a_lat = a
+    b_lon, b_lat = b
+
+    # Берем среднюю по широте точку и считаем коэффициент для нее.
+    radians_lattitude = math.radians((a_lat + b_lat) / 2.)
+    lat_lon_factor = math.cos(radians_lattitude)
+
+    # Вычисляем смещения в метрах по вертикали и горизонтали.
+    dx = abs(a_lon - b_lon) * degree_to_meters_factor * lat_lon_factor
+    dy = abs(a_lat - b_lat) * degree_to_meters_factor
+
+    # Вычисляем расстояние между точками.
+    distance = math.sqrt(dx * dx + dy * dy)
+    print(distance)
+    return distance
+
+
+def GoCoords(name, positioning=True):
     global lon_, lat_, tag_coords, address, postal_code
     geocoder_request = f"http://geocode-maps.yandex.ru/1.x/?apikey={API_KEY}&geocode={name}&format=json"
 
@@ -59,24 +79,22 @@ def GoCoords(name):
         if json_response["response"]["GeoObjectCollection"]["featureMember"]:
             toponym = json_response["response"]["GeoObjectCollection"]["featureMember"][0]["GeoObject"]
             
-            toponym_address = toponym["metaDataProperty"]["GeocoderMetaData"]["text"]
+            address = toponym["metaDataProperty"]["GeocoderMetaData"]["text"]
             try:
-                postal_code = toponym["metaDataProperty"]["GeocoderMetaData"]["Address"]['postal_code']
+                postal_code = toponym["metaDataProperty"]["GeocoderMetaData"]["Address"]['postal_code'] + ', '
             except Exception as e:
-                pass
-
+                postal_code = 'Индекс не найден, '
 
             toponym_coodrinates = toponym["Point"]["pos"].split()
-
-            lon_ = float(toponym_coodrinates[0])
-            lat_ = float(toponym_coodrinates[1])
-            tag_coords = [str(lon_), str(lat_), 'pm2dbl']
-            if len(toponym_address) > 50:
-                address = toponym_address[:51] + "..."
+            if positioning:
+                lon_ = float(toponym_coodrinates[0])
+                lat_ = float(toponym_coodrinates[1])
+                tag_coords = [str(lon_), str(lat_), 'pm2dbl']
             else:
-                address = toponym_address
+                tag_coords = [name.split(',')[0], name.split(',')[1], 'pm2dbl']
         else:
             address = 'Ничего не найдено'
+            tag_coords = None
 
 
 # загружаю карту
@@ -139,6 +157,7 @@ def DrawDelete(screen):
     text = pygame.font.Font(None, 22).render("Удалить метку", True, pygame.Color('blue'))
     screen.blit(text, (15, 60))
 
+
 def DrawPostalSwitching(screen, mode):
     pygame.draw.rect(screen, 'white', (10, 90, 50, 30))
     pygame.draw.rect(screen, 'gray', (10, 90, 50, 30), 3)
@@ -148,19 +167,70 @@ def DrawPostalSwitching(screen, mode):
         text = pygame.font.Font(None, 22).render("Off", True, pygame.Color('blue'))
     screen.blit(text, (15, 95))
 
-def draw_address_bar(screen):
-    pygame.draw.rect(screen, 'white', (10, 410, 500, 30))
-    pygame.draw.rect(screen, 'gray', (10, 410, 500, 30), 3)
-    font = pygame.font.Font(None, 25)
-    text = font.render(address, True, 'blue')
-    screen.blit(text, (15, 417))
 
-def draw_postal_bar(screen):
-    pygame.draw.rect(screen, 'white', (10, 350, 200, 30))
-    pygame.draw.rect(screen, 'gray', (10, 350, 200, 30), 3)
-    font = pygame.font.Font(None, 25)
-    text = font.render(postal_code, True, 'blue')
-    screen.blit(text, (15, 355))
+def draw_address_bar(screen):
+    if mode:
+        if postal_code == 'Индекс не найден, ':
+            idx = 58
+        else:
+            idx = 70
+    else:
+        idx = 75
+    if len(address) > idx:
+        print_address = address[:idx] + "..."
+    else:
+        print_address = address
+    if mode:
+        print_address = postal_code + print_address
+
+    pygame.draw.rect(screen, 'white', (10, 410, 580, 30))
+    pygame.draw.rect(screen, 'gray', (10, 410, 580, 30), 3)
+    font = pygame.font.Font(None, 20)
+    text = font.render(print_address, True, 'blue')
+    screen.blit(text, (15, 419))
+
+
+def search_organization(coords):
+    global tag_coords, address, postal_code
+    search_params = {
+        "apikey": "dda3ddba-c9ea-4ead-9010-f43fbc15c6e3",
+        "text": ','.join([coords.split(',')[1], coords.split(',')[0]]),
+        "lang": "ru_RU",
+        "type": "biz"
+    }
+    response = requests.get("https://search-maps.yandex.ru/v1/", params=search_params)
+    if response:
+        print(response.url)
+        # Преобразуем ответ в json-объект
+        json_response = response.json()
+        for organization in json_response["features"]:
+            point = organization["geometry"]["coordinates"]
+            if lonlat_distance([float(i) for i in point],
+                               [float(i) for i in coords.split(',')]) <= 50:
+                # Адрес организации
+                address = organization["properties"]["CompanyMetaData"]["address"]
+                try:
+                    postal_code = organization["properties"]["metaDataProperty"][
+                        "GeocoderMetaData"]["Address"]['postal_code']
+                except Exception as e:
+                    postal_code = 'Индекс не найден'
+                tag_coords = point.split() + ['pm2dbl']
+                break
+            else:
+                address = 'Ничего не найдено'
+                postal_code = 'Индекс не найден'
+                tag_coords = None
+    else:
+        address = 'Ничего не найдено'
+        postal_code = 'Индекс не найден'
+        tag_coords = None
+
+
+def geo_coords_to_pixels(coords):
+    lon = lon_ + (coords[0] - 300) * 0.0000428 * (2 ** (15 - zoom_))
+    lat = lat_ + (255 - coords[1]) * 0.0000428 * (2 ** (15 - zoom_))
+    return ','.join([str(round(lon, 6)), str(round(lat, 6))])
+
 
 def main():
     global tag_coords, address, postal_code, mode
@@ -182,18 +252,25 @@ def main():
             map_image = load(lon_, lat_, zoom_, map_type)
             screen.blit(pygame.image.load(map_image), (0, 0))
         elif event.type == pygame.MOUSEBUTTONDOWN:
-            if 483 <= event.pos[0] <= 517 and 3 <= event.pos[1] <= 33:
+            if 477 <= event.pos[0] <= 522 and 3 <= event.pos[1] <= 33:
                 map_type = 'map'
-            if 527 <= event.pos[0] <= 550 and 3 <= event.pos[1] <= 33:
+            elif 523 <= event.pos[0] <= 555 and 3 <= event.pos[1] <= 33:
                 map_type = 'sat'
-            if 560 <= event.pos[0] <= 593 and 3 <= event.pos[1] <= 33:
+            elif 556 <= event.pos[0] <= 597 and 3 <= event.pos[1] <= 33:
                 map_type = 'sat,skl'
-            if 10 <= event.pos[0] <= 130 and 50 <= event.pos[1] <= 80:
+            elif 10 <= event.pos[0] <= 130 and 50 <= event.pos[1] <= 80:
                 tag_coords = None
                 address = ''
                 postal_code = ''
-            if 10 <= event.pos[0] <= 60 and 90 <= event.pos[1] <= 120:
+            elif 10 <= event.pos[0] <= 60 and 90 <= event.pos[1] <= 120:
                 mode = not mode
+            elif not (10 <= event.pos[0] <= 510 and 410 <= event.pos[1] <= 440) and\
+                    not (10 <= event.pos[0] <= 310 and 10 <= event.pos[1] <= 42) and \
+                    not (not mode and 10 <= event.pos[0] <= 210 and 350 <= event.pos[1] <= 380):
+                if event.button == 1:
+                    GoCoords(geo_coords_to_pixels(event.pos), positioning=False)
+                elif event.button == 3:
+                    search_organization(geo_coords_to_pixels(event.pos))
             map_image = load(lon_, lat_, zoom_, map_type)
             screen.blit(pygame.image.load(map_image), (0, 0))
 
@@ -204,8 +281,6 @@ def main():
         DrawDelete(screen)
 
         draw_address_bar(screen)
-        if not mode:
-            draw_postal_bar(screen)
         DrawPostalSwitching(screen, mode)
 
         pygame.display.flip()
