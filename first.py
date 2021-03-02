@@ -92,6 +92,7 @@ def GoCoords(name, positioning=True):
                 tag_coords = [str(lon_), str(lat_), 'pm2dbl']
             else:
                 tag_coords = [name.split(',')[0], name.split(',')[1], 'pm2dbl']
+            print(tag_coords)
         else:
             address = 'Ничего не найдено'
             tag_coords = None
@@ -108,13 +109,11 @@ def load(lon, lat, zoom, map_type):
     if tag_coords:
         params['pt'] = ','.join(tag_coords)
     response = requests.get(api_server, params=params)
-
     if not response:
         print("Ошибка выполнения запроса:")
         print(response.url)
         print("Http статус:", response.status_code, "(", response.reason, ")")
         sys.exit(1)
-
     map_file = "map.png"
     with open(map_file, "wb") as file:
         file.write(response.content)
@@ -173,7 +172,7 @@ def draw_address_bar(screen):
         if postal_code == 'Индекс не найден, ':
             idx = 58
         else:
-            idx = 70
+            idx = 68
     else:
         idx = 75
     if len(address) > idx:
@@ -227,8 +226,9 @@ def search_organization(coords):
 
 
 def geo_coords_to_pixels(coords):
-    lon = lon_ + (coords[0] - 300) * 0.0000428 * (2 ** (15 - zoom_))
-    lat = lat_ + (255 - coords[1]) * 0.0000428 * (2 ** (15 - zoom_))
+    lon = lon_ + (coords[0] - 300) * 0.0000107 * (2 ** (17 - zoom_))
+    lat = lat_ + (225 - coords[1]) * 0.0000107 * math.cos(
+        math.radians(lat_)) * (2 ** (17 - zoom_))
     return ','.join([str(round(lon, 6)), str(round(lat, 6))])
 
 
