@@ -65,7 +65,7 @@ def lonlat_distance(a, b):
 
     # Вычисляем расстояние между точками.
     distance = math.sqrt(dx * dx + dy * dy)
-    print(distance)
+    #print(distance)
     return distance
 
 
@@ -91,11 +91,10 @@ def GoCoords(name, positioning=True):
                 lat_ = float(toponym_coodrinates[1])
                 tag_coords = [str(lon_), str(lat_), 'pm2dbl']
             else:
-                tag_coords = [name.split(',')[0], name.split(',')[1], 'pm2dbl']
-            print(tag_coords)
+                tag_coords = name.split(',') + ['pm2dbl']
+            #print(tag_coords)
         else:
-            address = 'Ничего не найдено'
-            tag_coords = None
+            reset_request()
 
 
 # загружаю карту
@@ -189,40 +188,50 @@ def draw_address_bar(screen):
     screen.blit(text, (15, 419))
 
 
+def reset_request():
+    global tag_coords, address, postal_code
+    address = 'Ничего не найдено'
+    postal_code = ''
+    tag_coords = None
+
+
 def search_organization(coords):
     global tag_coords, address, postal_code
+    #print(coords)
     search_params = {
         "apikey": "dda3ddba-c9ea-4ead-9010-f43fbc15c6e3",
-        "text": ','.join([coords.split(',')[1], coords.split(',')[0]]),
+        "text": 'организация',
         "lang": "ru_RU",
+        "ll": coords,
         "type": "biz"
     }
     response = requests.get("https://search-maps.yandex.ru/v1/", params=search_params)
     if response:
-        print(response.url)
+        #print(response.url)
         # Преобразуем ответ в json-объект
         json_response = response.json()
-        for organization in json_response["features"]:
-            point = organization["geometry"]["coordinates"]
-            if lonlat_distance([float(i) for i in point],
-                               [float(i) for i in coords.split(',')]) <= 50:
-                # Адрес организации
-                address = organization["properties"]["CompanyMetaData"]["address"]
-                try:
-                    postal_code = organization["properties"]["metaDataProperty"][
-                        "GeocoderMetaData"]["Address"]['postal_code']
-                except Exception as e:
-                    postal_code = 'Индекс не найден'
-                tag_coords = point.split() + ['pm2dbl']
-                break
-            else:
-                address = 'Ничего не найдено'
-                postal_code = 'Индекс не найден'
-                tag_coords = None
+        if json_response["features"]:
+            flag = False
+            for organization in json_response["features"]:
+                point = organization["geometry"]["coordinates"]
+                if lonlat_distance([float(i) for i in point],
+                                   [float(i) for i in coords.split(',')]) <= 200:
+                    # Адрес организации
+                    address = organization["properties"]["CompanyMetaData"]["address"]
+                    try:
+                        postal_code = organization["properties"]["metaDataProperty"][
+                            "GeocoderMetaData"]["Address"]['postal_code']
+                    except Exception as e:
+                        postal_code = 'Индекс не найден, '
+                    tag_coords = [str(i) for i in point] + ['pm2dbl']
+                    flag = True
+                    break
+            if flag:
+                reset_request()
+        else:
+            reset_request()
     else:
-        address = 'Ничего не найдено'
-        postal_code = 'Индекс не найден'
-        tag_coords = None
+        reset_request()
 
 
 def geo_coords_to_pixels(coords):
